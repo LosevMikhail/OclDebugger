@@ -28,6 +28,18 @@ class ClTypes:
         'float': np.float32,
         'double': np.float64
     }
+    flags = {
+        'char': 'x',
+        'uchar': 'x',
+        'short': 'hx',
+        'ushort': 'hx',
+        'int': 'x',
+        'uint': 'x',
+        'long': 'lx',
+        'ulong': 'lx',
+        'float': 'f',
+        'double': 'lf'
+    }
 
 
 def parse_scalar_value(value, var_type):
