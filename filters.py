@@ -16,5 +16,5 @@ def filter_node_list_by_node_kind(nodes: typing.Iterable[clang.cindex.Cursor], k
 
 def filter_node_list_by_start_line(nodes: typing.Iterable[clang.cindex.Cursor], by_line: int) \
         -> typing.Iterable[clang.cindex.Cursor]:
-    result = [n for n in nodes if n.extent.start.line < by_line]
+    result = [n for n in nodes if n.extent.start.line <= by_line]
     return result

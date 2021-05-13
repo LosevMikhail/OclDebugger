@@ -109,7 +109,7 @@ class VarInfo(object):
         else:
             self.is_array = False
 
-        # Check if it's a pointer TODO: test the way of check
+        # Check if it's a pointer
         match = re.findall('\*', self.full_type)
         self.pointer_rank = len(match)
 

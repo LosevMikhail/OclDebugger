@@ -95,7 +95,7 @@ def main(argv: [str]):
     if len(argv) > 1:
         kernel_file = argv[0]
         binary = argv[1]
-        break_line = int(argv[2])
+        break_line = int(argv[2]) - 1  # It makes a difference if we count from 0 or 1
     else:
         kernel_file = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/kernel.cl'
         binary = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/app'

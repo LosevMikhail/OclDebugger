@@ -13,7 +13,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
     def __init__(self, line: int):
         OclSourceProcessor.__init__(self)
         LineInserter.__init__(self)
-        self._break_line = line - 1
+        self._break_line = line
 
     def get_variables(self):
         return self._variables.copy()
@@ -36,13 +36,11 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             blocks.extend(self._find_blocks(child))
         return blocks
 
-    @staticmethod
-    def generate_printf(v: VarInfo) -> str:
+    def generate_printf(self, v: VarInfo) -> str:
         retval = ''
         if v.is_array:
             n_dims = len(v.var_shape)
-            # TODO: make them only be defined once
-            counter_names = ['_losev_' + e for e in ['i', 'j', 'k']]
+            counter_names = self._counter_names
             if 1 == n_dims:
                 retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name});\n'
                 retval += f'{counter_names[0]} = 0;\n'
@@ -93,7 +91,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
         self._variables = []
         for block in blocks:
             var_declarations = self.get_var_declarations(block)
-            var_declarations = filter_node_list_by_start_line(var_declarations, by_line=self._break_line + 1)
+            var_declarations = filter_node_list_by_start_line(var_declarations, by_line=self._break_line)
             # TODO: get rid of that 1
             var_declarations = [VarInfo(c) for c in var_declarations]
             self._variables.extend(var_declarations)
