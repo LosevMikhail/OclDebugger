@@ -6,7 +6,7 @@ from shutil import copyfile  # TODO: find out whether it works with Windows
 
 from typing import List
 
-from printfInserter import PrintfDebugger
+from PrintfInserter import PrintfInserter
 from primitives import VarInfo, Variable
 
 
@@ -31,7 +31,7 @@ class OclDebugger(object):
         return variables
 
     def _debug(self):
-        kernel_processor = PrintfDebugger('test', self._break_line)
+        kernel_processor = PrintfInserter(self._break_line)
         with open(self._kernel_file, 'r') as source_kernel_file:
             kernel = kernel_processor.process_source(str(source_kernel_file.read()), 'cl')
         with open(self._kernel_file, 'w') as kernel_file:
