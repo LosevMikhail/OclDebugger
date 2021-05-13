@@ -41,6 +41,16 @@ class ClTypes:
         'double': 'lf'
     }
 
+    @staticmethod
+    def get_printf_flag(var_type: str):
+        if var_type in ClTypes.scalar_types:
+            return f'%{ClTypes.flags[var_type]}'
+        if var_type in ClTypes.vector_types:
+            n = re.search('[0-9]+', var_type).group(0)
+            base = re.search('[a-z]+', var_type).group(0)
+            return f'%v{n}{ClTypes.flags[base]}'
+        assert False  # Fail if it's not a primitive type
+
 
 def parse_scalar_value(value, var_type):
     if var_type not in ClTypes.float_types:
@@ -76,7 +86,6 @@ class VarInfo(object):
     pointer_rank: int
 
     def __init__(self, node: Cursor):
-        # TODO: handle arrays
         assert node.kind == CursorKind.VAR_DECL
 
         self.var_name = node.spelling
