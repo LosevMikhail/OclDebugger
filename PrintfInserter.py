@@ -7,16 +7,22 @@ from primitives import VarInfo, ClTypes
 
 
 class PrintfInserter(OclSourceProcessor, LineInserter):
+    _magic_string: str = '[ debugging output begins ]'
     _counter_names = ['_losev_' + e for e in ['i', 'j', 'k']]
     _variables: [VarInfo] = None
 
-    def __init__(self, line: int):
+    def __init__(self, line: int, threads: [int]):
         OclSourceProcessor.__init__(self)
         LineInserter.__init__(self)
         self._break_line = line
+        self._threads = threads
 
     def get_variables(self):
         return self._variables.copy()
+
+    @staticmethod
+    def get_magic_string():
+        return PrintfInserter._magic_string
 
     @staticmethod
     def get_var_declarations(block: Cursor):
@@ -82,7 +88,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
 
         # 2. Get the indent
         parent_blocks = blocks[-1]
-        self._indent = self._code_lines[parent_blocks.extent.start.line][:parent_blocks.extent.start.column] + '\t'
+        self._indent = self._code_lines[parent_blocks.extent.start.line][:parent_blocks.extent.start.column]
 
         # 3. Generate the code
         counter_names = self._counter_names
@@ -92,7 +98,6 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
         for block in blocks:
             var_declarations = self.get_var_declarations(block)
             var_declarations = filter_node_list_by_start_line(var_declarations, by_line=self._break_line)
-            # TODO: get rid of that 1
             var_declarations = [VarInfo(c) for c in var_declarations]
             self._variables.extend(var_declarations)
 
@@ -101,9 +106,24 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             self._line_insertions.append(line)
 
         # 4. Pack the code inside a block
-        global_id = 0  # TODO: get the ID from outside
-        self._line_insertions.insert(0,
-                                     self._indent + f'if (get_global_id(0) == {global_id}) {{ // Save debugging data')
-        self._line_insertions.append(self._indent + '} // Save debugging data')
+        lines = []
+        for e in self._line_insertions:
+            lines.extend(e.split('\n'))
+        self._line_insertions = ['\t' * 2 + e for e in lines]
+        threads_array = '_losev_target_threads'
+        thread_counter = '_losev_thread_counter'
+        initializer_list = ', '.join([str(i) for i in self._threads])
+        # TODO: something about the indents
+        self._line_insertions.insert(0, f'int {threads_array}[] = {{{initializer_list}}};')
+        self._line_insertions.insert(1, f'if (get_global_id(0) == *{threads_array}) {{ printf("{self._magic_string}\\n"); }} \n')
+        self._line_insertions.insert(2,
+                                     f'for (int {thread_counter} = 0; {thread_counter} < {len(self._threads)}; {thread_counter}++) {{')
+        self._line_insertions.insert(3,
+                                     f'\tif (get_global_id(0) == {threads_array}[{thread_counter}]) {{ // Save '
+                                     f'debugging data')
+        self._line_insertions.append('\t} // Save debugging data')
+        self._line_insertions.append('} // ?')
+        # self._indent = self._indent[:-1]
+        # self._line_insertions.append(self._indent + '}')
 
         self._insert_line = self._break_line

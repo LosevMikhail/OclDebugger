@@ -121,8 +121,9 @@ class VarInfo(object):
 
 
 class Variable(object):
-    def __init__(self, info: VarInfo, value: str):
+    def __init__(self, info: VarInfo, value: str, gid: int = None):
         self.info = info
+        self.gid = gid
 
         if info.is_array:
             n_dims = len(info.var_shape)

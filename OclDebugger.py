@@ -11,7 +11,8 @@ from primitives import VarInfo, Variable
 
 
 class OclDebugger(object):
-    _break_line: int = 0
+    _break_line: int = None
+    _threads: [int] = None
 
     def __init__(self, kernel_file: str, binary: str):
         self._kernel_file = kernel_file
@@ -20,8 +21,9 @@ class OclDebugger(object):
         # TODO: find out whether it works with Windows
         self._cmd = f'cd {self._binary_dir} && ./{self._binary}'
 
-    def safe_debug(self, break_line: int):
+    def safe_debug(self, break_line: int, threads: [int]):
         self._break_line = break_line
+        self._threads = threads
 
         copyfile(self._kernel_file, 'kernel_backup')
         try:
@@ -31,7 +33,7 @@ class OclDebugger(object):
         return variables
 
     def _debug(self):
-        kernel_processor = PrintfInserter(self._break_line)
+        kernel_processor = PrintfInserter(self._break_line, self._threads)
         with open(self._kernel_file, 'r') as source_kernel_file:
             kernel = kernel_processor.process_source(str(source_kernel_file.read()), 'cl')
         with open(self._kernel_file, 'w') as kernel_file:
@@ -61,12 +63,19 @@ class OclDebugger(object):
         env['PWD'] = self._binary_dir
         return env
 
-    @staticmethod
-    async def process_values(info: List[VarInfo], values):
+    async def process_values(self, info: List[VarInfo], values):
+        while True:
+            try:
+                if await values.__anext__() == PrintfInserter.get_magic_string():
+                    break
+            except StopAsyncIteration as e:
+                fatal('No debugging data received')
+                exit(-1)
         variables = []
-        for i in info:
-            v = await values.__anext__()
-            variables.append(Variable(i, v))
+        for t in self._threads:
+            for i in info:
+                v = await values.__anext__()
+                variables.append(Variable(i, v, t))
         return variables
 
     async def value_generator(self):
@@ -101,12 +110,14 @@ def main(argv: [str]):
         binary = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/app'
         break_line = 9
 
+    threads = [0, 3]
+
     debugger = OclDebugger(
         kernel_file=kernel_file,
         binary=binary
     )
-    
-    variables = debugger.safe_debug(break_line=break_line)
+
+    variables = debugger.safe_debug(break_line=break_line, threads=threads)
     for v in variables:
         print(v)
 
