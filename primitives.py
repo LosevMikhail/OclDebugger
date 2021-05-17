@@ -6,6 +6,7 @@ from clang.cindex import Cursor, CursorKind
 
 
 class ClTypes:
+    # TODO: add half types
     pointer_type = 'uint'
     signed_integer_types = ['char', 'short', 'int', 'long']
     unsigned_integer_types = ['uchar', 'ushort', 'uint', 'ulong']
@@ -50,29 +51,6 @@ class ClTypes:
             base = re.search('[a-z]+', var_type).group(0)
             return f'%v{n}{ClTypes.flags[base]}'
         assert False  # Fail if it's not a primitive type
-
-
-def parse_scalar_value(value, var_type):
-    if var_type not in ClTypes.float_types:
-        value = int(value, base=16)
-        return int(ClTypes.parser[var_type](value))
-    return float(ClTypes.parser[var_type](value))
-
-
-def parse_vector_value(value, var_type):
-    elements = value.split(',')
-    assert len(elements) in [2, 4, 8, 16]
-    base = re.search('[a-z]+', var_type).group(0)
-    return [parse_scalar_value(value=e, var_type=base) for e in elements]
-
-
-def parse_value(value, var_type):
-    if var_type in ClTypes.scalar_types:
-        return parse_scalar_value(value=value, var_type=var_type)
-    elif var_type in ClTypes.vector_types:
-        return parse_vector_value(value=value, var_type=var_type)
-    else:
-        pass  # TODO: implement structs parsing
 
 
 class VarInfo(object):
@@ -127,23 +105,62 @@ class Variable(object):
 
         if info.is_array:
             n_dims = len(info.var_shape)
+            values = value.split(' ')
             if n_dims == 1:
-                values = value.split(' ')
-                assert len(values) == 1 + info.var_shape[0]
-                self.value = [parse_value(values[0], ClTypes.pointer_type),
-                              [parse_value(v, info.var_type) for v in values[1:]]]
+                self.value = self.__parse_1d_array(values, info.var_shape, info.var_type)
             elif n_dims == 2:
-                values = value.split(' ')
-                assert len(values) == 1 + info.var_shape[0] * (1 + info.var_shape[1])
-                self.value = [parse_value(values[0], ClTypes.pointer_type)]
-                for i in range(info.var_shape[0]):
-                    line = values[1 + i * (1 + info.var_shape[1]): 1 + (i + 1) * (1 + info.var_shape[1])]
-                    self.value.append([parse_value(line[0], ClTypes.pointer_type),
-                                       [parse_value(v, info.var_type) for v in line[1:]]])
+                self.value = self.__parse_2d_array(values, info.var_shape, info.var_type)
             elif n_dims == 3:
-                pass  # TODO: implement
+                self.value = self.__parse_3d_array(values, info.var_shape, info.var_type)
         else:
-            self.value = parse_value(value, info.var_type)
+            self.value = self.__parse_value(value, info.var_type)
+
+    @staticmethod
+    def __parse_scalar_value(value, var_type):
+        if var_type not in ClTypes.float_types:
+            value = int(value, base=16)
+            return int(ClTypes.parser[var_type](value))
+        return float(ClTypes.parser[var_type](value))
+
+    @staticmethod
+    def __parse_vector_value(value, var_type):
+        elements = value.split(',')
+        assert len(elements) in [2, 4, 8, 16]
+        base = re.search('[a-z]+', var_type).group(0)
+        return [Variable.__parse_scalar_value(value=e, var_type=base) for e in elements]
+
+    @staticmethod
+    def __parse_value(value, var_type):
+        if var_type in ClTypes.scalar_types:
+            return Variable.__parse_scalar_value(value=value, var_type=var_type)
+        elif var_type in ClTypes.vector_types:
+            return Variable.__parse_vector_value(value=value, var_type=var_type)
+        else:
+            pass  # TODO: implement structs parsing
+
+    @staticmethod
+    def __parse_1d_array(arr: [str], var_shape: [int], var_type: str):
+        assert len(arr) == 1 + var_shape[0]
+        return [Variable.__parse_value(arr[0], ClTypes.pointer_type), [Variable.__parse_value(v, var_type) for v in arr[1:]]]
+
+    @staticmethod
+    def __parse_2d_array(arr: [str], var_shape: [int], var_type: str):
+        assert len(arr) == 1 + var_shape[0] * (1 + var_shape[1])
+        retval = [Variable.__parse_value(arr[0], ClTypes.pointer_type)]
+        for i in range(var_shape[0]):
+            array_1d = arr[1 + (i + 0) * (1 + var_shape[1]): 1 + (i + 1) * (1 + var_shape[1])]
+            retval.append(Variable.__parse_1d_array(array_1d, (var_shape[1],), var_type))
+        return retval
+
+    @staticmethod
+    def __parse_3d_array(arr: [str], var_shape: [int], var_type: str):
+        assert len(arr) == 1 + var_shape[0] * (1 + var_shape[1] * (1 + var_shape[2]))
+        retval = [Variable.__parse_value(arr[0], ClTypes.pointer_type)]
+        for i in range(var_shape[0]):
+            array_2d = arr[1 + (i + 0) * (1 + var_shape[1] * (1 + var_shape[2])):
+                           1 + (i + 1) * (1 + var_shape[1] * (1 + var_shape[2]))]
+            retval.append(Variable.__parse_2d_array(array_2d, (var_shape[1], var_shape[2]), var_type))
+        return retval
 
     def __str__(self):
         return json.dumps(self, default=lambda o: o.__dict__)
@@ -153,4 +170,4 @@ class Variable(object):
 
 
 if __name__ == '__main__':
-    print(parse_value(value='0.100000,0.200000', var_type='double2'))
+    print(Variable.parse_value(value='0.100000,0.200000', var_type='double2'))
