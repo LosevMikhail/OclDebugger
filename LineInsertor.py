@@ -12,7 +12,7 @@ class LineInserter(SourceProcessor):
     def _apply_patches(self):
         line_insertions = []
         for line in self._line_insertions:
-            line_insertions.extend([self._indent + '\t' + e for e in line.split('\n')])
+            line_insertions.extend([self._indent + e for e in line.split('\n')])
         lines = self._code.split('\n')
         lines = lines[:self._insert_line] + line_insertions + lines[self._insert_line:]
         self._code = '\n'.join(lines[:])
