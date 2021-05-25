@@ -7,7 +7,7 @@ from shutil import copyfile  # TODO: find out whether it works with Windows
 from typing import List
 
 from PrintfInserter import PrintfInserter
-from primitives import VarInfo, Variable
+from primitives import VarDeclaration, Variable
 
 
 class OclDebugger(object):
@@ -63,7 +63,7 @@ class OclDebugger(object):
         env['PWD'] = self._binary_dir
         return env
 
-    async def process_values(self, info: List[VarInfo], values):
+    async def process_values(self, info: List[VarDeclaration], values):
         while True:
             try:
                 if await values.__anext__() == PrintfInserter.get_magic_string():

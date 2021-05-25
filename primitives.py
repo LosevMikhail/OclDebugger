@@ -1,5 +1,7 @@
+import abc
 import json
 import re
+from abc import abstractmethod, ABC
 
 import numpy as np
 from clang.cindex import Cursor, CursorKind
@@ -53,15 +55,22 @@ class ClTypes:
         assert False  # Fail if it's not a primitive type
 
 
-class VarInfo(object):
+class Declaration(object):
+    __metaclass__ = abc.ABCMeta
+
+    @abstractmethod
+    def is_struct(self):
+        pass
+
+    def __str__(self):
+        return json.dumps(self, default=lambda o: o.__dict__)
+
+    def __repr__(self):
+        return str(self)
+
+
+class VarDeclaration(Declaration, ABC):
     _address_space_modifiers: [str] = ['__private', '__local', '__global']
-    address_space: str
-    full_type: str
-    var_name: str
-    var_type: str
-    is_array: bool
-    var_shape: []
-    pointer_rank: int
 
     def __init__(self, node: Cursor):
         assert node.kind == CursorKind.VAR_DECL
@@ -91,29 +100,23 @@ class VarInfo(object):
         match = re.findall('\*', self.full_type)
         self.pointer_rank = len(match)
 
-    def __str__(self):
-        return json.dumps(self, default=lambda o: o.__dict__)
-
-    def __repr__(self):
-        return str(self)
-
 
 class Variable(object):
-    def __init__(self, info: VarInfo, value: str, gid: int = None):
-        self.info = info
+    def __init__(self, decl: VarDeclaration, value: str, gid: int = None):
+        self.decl = decl
         self.gid = gid
 
-        if info.is_array:
-            n_dims = len(info.var_shape)
+        if decl.is_array:
+            n_dims = len(decl.var_shape)
             values = value.split(' ')
             if n_dims == 1:
-                self.value = self.__parse_1d_array(values, info.var_shape, info.var_type)
+                self.value = self.__parse_1d_array(values, decl.var_shape, decl.var_type)
             elif n_dims == 2:
-                self.value = self.__parse_2d_array(values, info.var_shape, info.var_type)
+                self.value = self.__parse_2d_array(values, decl.var_shape, decl.var_type)
             elif n_dims == 3:
-                self.value = self.__parse_3d_array(values, info.var_shape, info.var_type)
+                self.value = self.__parse_3d_array(values, decl.var_shape, decl.var_type)
         else:
-            self.value = self.__parse_value(value, info.var_type)
+            self.value = self.__parse_value(value, decl.var_type)
 
     @staticmethod
     def __parse_scalar_value(value, var_type):
@@ -141,7 +144,8 @@ class Variable(object):
     @staticmethod
     def __parse_1d_array(arr: [str], var_shape: [int], var_type: str):
         assert len(arr) == 1 + var_shape[0]
-        return [Variable.__parse_value(arr[0], ClTypes.pointer_type), [Variable.__parse_value(v, var_type) for v in arr[1:]]]
+        return [Variable.__parse_value(arr[0], ClTypes.pointer_type),
+                [Variable.__parse_value(v, var_type) for v in arr[1:]]]
 
     @staticmethod
     def __parse_2d_array(arr: [str], var_shape: [int], var_type: str):
@@ -170,4 +174,6 @@ class Variable(object):
 
 
 if __name__ == '__main__':
-    print(Variable.parse_value(value='0.100000,0.200000', var_type='double2'))
+    a = Declaration()
+    print('a')
+    # print(Variable.parse_value(value='0.100000,0.200000', var_type='double2'))

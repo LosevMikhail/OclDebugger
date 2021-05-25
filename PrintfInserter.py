@@ -5,13 +5,13 @@ from clang.cindex import Cursor, CursorKind
 from LineInsertor import LineInserter
 from OclSourceProcessor import OclSourceProcessor
 from filters import filter_node_list_by_node_kind, filter_node_list_by_start_line
-from primitives import VarInfo, ClTypes
+from primitives import ClTypes, VarDeclaration
 
 
 class PrintfInserter(OclSourceProcessor, LineInserter):
     _magic_string: str = '[ debugging output begins ]'
     _counter_names = ['_losev_' + e for e in ['i', 'j', 'k']]
-    _variables: [VarInfo] = None
+    _variables: [VarDeclaration] = None
 
     def __init__(self, line: int, threads: [int]):
         OclSourceProcessor.__init__(self)
@@ -64,7 +64,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
                 + ['\t' + i for i in contents] + [f'\t{counter_name}++;', f'}}']
         return lines
 
-    def generate_printf(self, v: VarInfo) -> str:
+    def generate_printf(self, v: VarDeclaration) -> str:
         retval = ''
         if v.is_array:
             n_dims = len(v.var_shape)
@@ -128,7 +128,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             declarations = self.get_decl_statements(block)
             declarations = filter_node_list_by_start_line(declarations, by_line=self._break_line)
             var_declarations = self._get_var_declarations(declarations)
-            var_declarations = [VarInfo(c) for c in var_declarations]
+            var_declarations = [VarDeclaration(c) for c in var_declarations]
             self._variables.extend(var_declarations)
 
         for v in self._variables:
