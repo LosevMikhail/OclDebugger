@@ -1,3 +1,5 @@
+from typing import List
+
 from clang.cindex import Cursor, CursorKind
 
 from LineInsertor import LineInserter
@@ -28,6 +30,20 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
     def get_var_declarations(block: Cursor):
         assert block.kind == CursorKind.COMPOUND_STMT
         declarations = filter_node_list_by_node_kind(block.get_children(), [CursorKind.DECL_STMT])
+        var_declarations = []
+        for d in declarations:
+            var_declarations.extend(filter_node_list_by_node_kind(d.get_children(), [CursorKind.VAR_DECL]))
+        return var_declarations
+
+    @staticmethod
+    def get_decl_statements(block: Cursor):
+        assert block.kind == CursorKind.COMPOUND_STMT
+        # Note: declaration statement may contain a few variable declarations
+        declarations = filter_node_list_by_node_kind(block.get_children(), [CursorKind.DECL_STMT])
+        return declarations
+
+    @staticmethod
+    def _get_var_declarations(declarations: List[Cursor]):
         var_declarations = []
         for d in declarations:
             var_declarations.extend(filter_node_list_by_node_kind(d.get_children(), [CursorKind.VAR_DECL]))
@@ -109,8 +125,9 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             f'int {counter_names[0]} = 0; int {counter_names[1]} = 0; int {counter_names[2]} = 0;')
         self._variables = []
         for block in blocks:
-            var_declarations = self.get_var_declarations(block)
-            var_declarations = filter_node_list_by_start_line(var_declarations, by_line=self._break_line)
+            declarations = self.get_decl_statements(block)
+            declarations = filter_node_list_by_start_line(declarations, by_line=self._break_line)
+            var_declarations = self._get_var_declarations(declarations)
             var_declarations = [VarInfo(c) for c in var_declarations]
             self._variables.extend(var_declarations)
 
