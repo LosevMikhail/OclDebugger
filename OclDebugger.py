@@ -37,7 +37,7 @@ class OclDebugger(object):
         with open(self._kernel_file, 'r') as source_kernel_file:
             kernel = kernel_processor.process_source(str(source_kernel_file.read()), 'cl')
 
-        ClTypes.struct_types = kernel_processor.get_structs()
+        ClTypes.struct_declarations = kernel_processor.get_structs()
 
         with open(self._kernel_file, 'w') as kernel_file:
             kernel_file.write(kernel)
@@ -115,7 +115,7 @@ def main(argv: [str]):
     else:
         kernel_file = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/kernel.cl'
         binary = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/app'
-        break_line = 9
+        break_line = 16
 
     threads = [0, 3]
 

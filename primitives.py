@@ -22,7 +22,7 @@ class ClTypes:
     vector_types = [f'{t}{n}' for t in vector_base for n in [2, 4, 8, 16]]
     scalar_types = ['char', 'uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong', 'float', 'double']
 
-    struct_types: [] = None
+    struct_declarations: [] = None
 
     parser = {
         'char': np.int8,
@@ -61,13 +61,17 @@ class ClTypes:
 
     @staticmethod
     def get_struct_decl(struct_name: str):
-        struct_names = [s.name for s in ClTypes.struct_types]
+        struct_names = [s.name for s in ClTypes.struct_declarations]
         if struct_name not in struct_names:
             raise Exception("Undefined struct name")
-        struct = [s for s in ClTypes.struct_types if s.name == struct_name]
+        struct = [s for s in ClTypes.struct_declarations if s.name == struct_name]
         assert len(struct) == 1
         struct = struct[0]
         return struct
+
+    @staticmethod
+    def get_struct_types():
+        return [e.name for e in ClTypes.struct_declarations]
 
 
 class Declaration(object):
@@ -153,10 +157,15 @@ class FieldDeclaration(Declaration, ABC):
         assert words is not None
         assert len(words) > 0
         self.full_type = ' '.join(words)
-        self.var_type = words[0]
+
+        is_struct = words[0] == 'struct'
+        if is_struct:
+            self.var_type = words[1]
+        else:
+            self.var_type = words[0]
 
         # Check if it's an array
-        if len(words) > 1:
+        if len(words) > 1 + int(is_struct):
             match = re.findall('\[[0-9]+\]', self.full_type)
             self.is_array = bool(len(match))
             self.var_shape = [int(re.search('[0-9]+', m).group(0)) for m in match]
@@ -218,10 +227,10 @@ class Variable(object):
     @staticmethod
     def __parse_struct(value, var_type):
         struct_type = var_type
-        struct_names = [s.name for s in ClTypes.struct_types]
+        struct_names = [s.name for s in ClTypes.struct_declarations]
         if struct_type not in struct_names:
             raise Exception("Undefined struct name")
-        struct = [s for s in ClTypes.struct_types if s.name == struct_type]
+        struct = [s for s in ClTypes.struct_declarations if s.name == struct_type]
         assert len(struct) == 1
         struct = struct[0]
 
@@ -250,8 +259,10 @@ class Variable(object):
                 elif field_type in ClTypes.vector_types:
                     retval[f] = Variable.__parse_vector_value(elements[i], field_type)
                     i += 1
-                elif field_type in ClTypes.struct_types:
-                    pass  # TODO: implement
+                elif field_type in ClTypes.get_struct_types():
+                    l = field_decl.words_num()
+                    retval[f] = Variable.__parse_struct(' '.join(elements[i: i + l - 1]), field_type)
+                    i += l - 1
 
         return retval
 
