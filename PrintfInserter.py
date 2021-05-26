@@ -70,6 +70,47 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             structs.extend(self._find_struct_declarations(child))
         return structs
 
+    def __gen_printf_arr(self, v: Declaration, parent=None, delim=''):
+        var_name = v.var_name
+        if parent is not None:
+            var_name = '.'.join([parent, var_name])
+        retval = f'printf("{v.var_name} ");'
+        n_dims = len(v.var_shape)
+        counter_names = self._counter_names
+        if 1 == n_dims:
+            retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name});\n'
+            res = self.__gen_cycle(counter_names[0], str(v.var_shape[0]),
+                                   contents=['printf(" ");',
+                                             f'printf("{ClTypes.get_printf_flag(v.var_type)}", {var_name}[{counter_names[0]}]);'])
+            for e in res:
+                retval += e + '\n'
+        elif 2 == n_dims:
+            retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name});\n'
+            inner_lines = self.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
+                                           contents=['printf(" ");',
+                                                     f'printf("{ClTypes.get_printf_flag(v.var_type)}", {var_name}[{counter_names[0]}][{counter_names[1]}]);'])
+            res = self.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
+                                   contents=[
+                                                f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name}[{counter_names[0]}]);'] + inner_lines)
+            for e in res:
+                retval += e + '\n'
+        elif 3 == n_dims:
+            retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name});\n'
+            inner_lines = self.__gen_cycle(counter_name=counter_names[2], count=str(v.var_shape[2]),
+                                           contents=['printf(" ");',
+                                                     f'printf("{ClTypes.get_printf_flag(v.var_type)}", {var_name}[{counter_names[0]}][{counter_names[1]}][{counter_names[2]}]);'])
+            inner_lines = self.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
+                                           contents=[
+                                                        f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name}[{counter_names[0]}][{counter_names[1]}]);'] + inner_lines)
+            res = self.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
+                                   contents=[
+                                                f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name}[{counter_names[0]}]);'] + inner_lines)
+            for e in res:
+                retval += e + '\n'
+
+        retval += f'printf("{delim}");'
+        return retval
+
     def __gen_printf_var(self, v: Declaration, parent=None, delim=''):
         var_name = v.var_name
         if parent is not None:
@@ -90,7 +131,10 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
                 struct = struct[0]
 
                 for f in struct.fields.keys():
-                    t = self.__gen_printf_var(struct.fields[f], parent=var_name)
+                    if struct.fields[f].is_array:
+                        t = self.__gen_printf_arr(struct.fields[f], parent=var_name, delim=' ')
+                    else:
+                        t = self.__gen_printf_var(struct.fields[f], parent=var_name)
                     retval += t
                 retval += f'printf("{delim}");'
             else:
@@ -103,46 +147,10 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
                 + ['\t' + i for i in contents] + [f'\t{counter_name}++;', f'}}']
         return lines
 
-    def generate_printf(self, v: VarDeclaration) -> str:
+    def generate_printf(self, v: Declaration) -> str:
         retval = ''
         if v.is_array:
-            n_dims = len(v.var_shape)
-            counter_names = self._counter_names
-            if 1 == n_dims:
-                retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name});\n'
-                res = self.__gen_cycle(counter_names[0], str(v.var_shape[0]),
-                                       contents=['printf(" ");',
-                                                 f'printf("{ClTypes.get_printf_flag(v.var_type)}", {v.var_name}[{counter_names[0]}]);'])
-                for e in res:
-                    retval += e + '\n'
-                retval += 'printf("\\n");\n'
-            elif 2 == n_dims:
-                retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name});\n'
-                inner_lines = self.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
-                                               contents=['printf(" ");',
-                                                         f'printf("{ClTypes.get_printf_flag(v.var_type)}", {v.var_name}[{counter_names[0]}][{counter_names[1]}]);'])
-                res = self.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
-                                       contents=[
-                                                    f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name}[{counter_names[0]}]);'] + inner_lines)
-                for e in res:
-                    retval += e + '\n'
-                retval += 'printf("\\n");'
-            elif 3 == n_dims:
-                retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name});\n'
-                inner_lines = self.__gen_cycle(counter_name=counter_names[2], count=str(v.var_shape[2]),
-                                               contents=['printf(" ");',
-                                                         f'printf("{ClTypes.get_printf_flag(v.var_type)}", {v.var_name}[{counter_names[0]}][{counter_names[1]}][{counter_names[2]}]);'])
-                inner_lines = self.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
-                                               contents=[
-                                                            f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name}[{counter_names[0]}][{counter_names[1]}]);'] + inner_lines)
-                res = self.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
-                                       contents=[
-                                                    f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {v.var_name}[{counter_names[0]}]);'] + inner_lines)
-                for e in res:
-                    retval += e + '\n'
-                retval += 'printf("\\n");'
-            else:
-                raise Exception('Too much array dimensions...')
+            retval += self.__gen_printf_arr(v, delim='\\n')
         else:
             retval = self.__gen_printf_var(v, delim='\\n')
         return retval
@@ -159,7 +167,6 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
 
         # 2.5. Get struct declarations
         self._structs = [StructDeclaration(c) for c in self._find_struct_declarations(self._ast_root)]
-        print(self._structs)
 
         # 3. Generate the code
         counter_names = self._counter_names

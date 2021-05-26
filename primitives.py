@@ -59,14 +59,45 @@ class ClTypes:
             return f'%v{n}{ClTypes.flags[base]}'
         assert False  # Fail if it's not a primitive type
 
+    @staticmethod
+    def get_struct_decl(struct_name: str):
+        struct_names = [s.name for s in ClTypes.struct_types]
+        if struct_name not in struct_names:
+            raise Exception("Undefined struct name")
+        struct = [s for s in ClTypes.struct_types if s.name == struct_name]
+        assert len(struct) == 1
+        struct = struct[0]
+        return struct
 
 
 class Declaration(object):
     __metaclass__ = abc.ABCMeta
 
-    @abstractmethod
+    def __init__(self):
+        self.var_type = None
+        self.var_shape = None
+        self.is_array = None
+
     def is_struct(self):
-        pass
+        return self.var_type not in ClTypes.scalar_types and \
+               self.var_type not in ClTypes.vector_types
+
+    def words_num(self):
+        val_words = 0
+        if self.is_array:
+            t = 1
+            shape_rev = reversed(self.var_shape)
+            for d in shape_rev:
+                d += 1
+                t *= d
+            val_words = t
+        elif self.is_struct():
+            struct_decl = ClTypes.get_struct_decl(self.var_type)
+            val_words = struct_decl.words_num()
+        else:
+            val_words = 1
+
+        return 1 + val_words  # 1 for variable name signing
 
     def __str__(self):
         return json.dumps(self, default=lambda o: o.__dict__)
@@ -110,12 +141,8 @@ class VarDeclaration(Declaration, ABC):
         match = re.findall('\*', self.full_type)
         self.pointer_rank = len(match)
 
-    def is_struct(self):
-        return self.var_type not in ClTypes.scalar_types and \
-               self.var_type not in ClTypes.vector_types
 
 class FieldDeclaration(Declaration, ABC):
-
     def __init__(self, node: Cursor):
         assert node.kind == CursorKind.FIELD_DECL
 
@@ -155,6 +182,7 @@ class Variable(object):
     def __parse_var(value, decl):
         if decl.is_array:
             n_dims = len(decl.var_shape)
+            values = value.split(' ')
             if n_dims == 1:
                 return Variable.__parse_1d_array(values, decl.var_shape, decl.var_type)
             elif n_dims == 2:
@@ -206,7 +234,15 @@ class Variable(object):
             assert elements[i] == field_decl.var_name
             i += 1
             if field_decl.is_array:
-                pass  # TODO: implement
+                n_dims = len(field_decl.var_shape)
+                values = elements[i:i+field_decl.words_num() - 1]
+                i += field_decl.words_num() - 1
+                if n_dims == 1:
+                    retval[f] = Variable.__parse_1d_array(values, field_decl.var_shape, field_decl.var_type)
+                elif n_dims == 2:
+                    retval[f] = Variable.__parse_2d_array(values, field_decl.var_shape, field_decl.var_type)
+                elif n_dims == 3:
+                    retval[f] = Variable.__parse_3d_array(values, field_decl.var_shape, field_decl.var_type)
             else:
                 if field_type in ClTypes.scalar_types:
                     retval[f] = Variable.__parse_scalar_value(elements[i], field_type)
@@ -259,6 +295,13 @@ class StructDeclaration(object):
         self.fields = {}
         for f in fields:
             self.fields[f.spelling] = FieldDeclaration(f)
+
+    def words_num(self):
+        retval = 0
+        for f in self.fields.keys():
+            field_decl = self.fields[f]
+            retval += field_decl.words_num()
+        return retval
 
     def __str__(self):
         return json.dumps(self, default=lambda o: o.__dict__)
