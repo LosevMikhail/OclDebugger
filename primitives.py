@@ -1,8 +1,8 @@
 import abc
 import json
 import re
-from abc import abstractmethod, ABC
-from struct import Struct
+from abc import ABC
+from typing import List, Tuple
 
 import numpy as np
 from clang.cindex import Cursor, CursorKind
@@ -113,13 +113,11 @@ class Declaration(object):
 class VarDeclaration(Declaration, ABC):
     _address_space_modifiers: [str] = ['__private', '__local', '__global']
 
-    def __init__(self, node: Cursor):
-        assert node.kind == CursorKind.VAR_DECL
-
-        self.var_name = node.spelling
-
+    def __init__(self, var_name: str, full_type: str):
+        super().__init__()
+        self.var_name = var_name
         # Make ASM come first
-        words = node.type.spelling.split(' ')
+        words = full_type.split(' ')
         assert words is not None
         assert len(words) > 1
         if words[0] not in self._address_space_modifiers:
@@ -148,6 +146,7 @@ class VarDeclaration(Declaration, ABC):
 
 class FieldDeclaration(Declaration, ABC):
     def __init__(self, node: Cursor):
+        super().__init__()
         assert node.kind == CursorKind.FIELD_DECL
 
         self.var_name = node.spelling
@@ -190,14 +189,7 @@ class Variable(object):
     @staticmethod
     def __parse_var(value, decl):
         if decl.is_array:
-            n_dims = len(decl.var_shape)
-            values = value.split(' ')
-            if n_dims == 1:
-                return Variable.__parse_1d_array(values, decl.var_shape, decl.var_type)
-            elif n_dims == 2:
-                return Variable.__parse_2d_array(values, decl.var_shape, decl.var_type)
-            elif n_dims == 3:
-                return Variable.__parse_3d_array(values, decl.var_shape, decl.var_type)
+            return Variable.__parse_array(value.split(' '), decl.var_shape, decl.var_type)
         else:
             return Variable.__parse_value(value, decl.var_type)
 
@@ -243,15 +235,9 @@ class Variable(object):
             assert elements[i] == field_decl.var_name
             i += 1
             if field_decl.is_array:
-                n_dims = len(field_decl.var_shape)
                 values = elements[i:i+field_decl.words_num() - 1]
                 i += field_decl.words_num() - 1
-                if n_dims == 1:
-                    retval[f] = Variable.__parse_1d_array(values, field_decl.var_shape, field_decl.var_type)
-                elif n_dims == 2:
-                    retval[f] = Variable.__parse_2d_array(values, field_decl.var_shape, field_decl.var_type)
-                elif n_dims == 3:
-                    retval[f] = Variable.__parse_3d_array(values, field_decl.var_shape, field_decl.var_type)
+                retval[f] = Variable.__parse_array(values, field_decl.var_shape, field_decl.var_type)
             else:
                 if field_type in ClTypes.scalar_types:
                     retval[f] = Variable.__parse_scalar_value(elements[i], field_type)
@@ -267,29 +253,39 @@ class Variable(object):
         return retval
 
     @staticmethod
-    def __parse_1d_array(arr: [str], var_shape: [int], var_type: str):
-        assert len(arr) == 1 + var_shape[0]
-        return [Variable.__parse_value(arr[0], ClTypes.pointer_type),
-                [Variable.__parse_value(v, var_type) for v in arr[1:]]]
+    def __parse_array(arr: [str], var_shape: [int], var_type: str):
+        n_dims = len(var_shape)
+        if n_dims == 1:
+            return Variable.__parse_1d_array(arr, var_shape, var_type)
+        elif n_dims == 2:
+            return Variable.__parse_2d_array(arr, var_shape, var_type)
+        elif n_dims == 3:
+            return Variable.__parse_3d_array(arr, var_shape, var_type)
 
     @staticmethod
-    def __parse_2d_array(arr: [str], var_shape: [int], var_type: str):
+    def __parse_1d_array(arr: [str], var_shape: [int], var_type: str) -> Tuple:
+        assert len(arr) == 1 + var_shape[0]
+        return (Variable.__parse_value(arr[0], ClTypes.pointer_type),
+                [Variable.__parse_value(v, var_type) for v in arr[1:]])
+
+    @staticmethod
+    def __parse_2d_array(arr: [str], var_shape: [int], var_type: str)  -> Tuple:
         assert len(arr) == 1 + var_shape[0] * (1 + var_shape[1])
-        retval = [Variable.__parse_value(arr[0], ClTypes.pointer_type)]
+        values = []
         for i in range(var_shape[0]):
             array_1d = arr[1 + (i + 0) * (1 + var_shape[1]): 1 + (i + 1) * (1 + var_shape[1])]
-            retval.append(Variable.__parse_1d_array(array_1d, (var_shape[1],), var_type))
-        return retval
+            values.append(Variable.__parse_1d_array(array_1d, (var_shape[1],), var_type))
+        return Variable.__parse_value(arr[0], ClTypes.pointer_type), values
 
     @staticmethod
-    def __parse_3d_array(arr: [str], var_shape: [int], var_type: str):
+    def __parse_3d_array(arr: [str], var_shape: [int], var_type: str) -> Tuple:
         assert len(arr) == 1 + var_shape[0] * (1 + var_shape[1] * (1 + var_shape[2]))
-        retval = [Variable.__parse_value(arr[0], ClTypes.pointer_type)]
+        retval = []
         for i in range(var_shape[0]):
             array_2d = arr[1 + (i + 0) * (1 + var_shape[1] * (1 + var_shape[2])):
                            1 + (i + 1) * (1 + var_shape[1] * (1 + var_shape[2]))]
             retval.append(Variable.__parse_2d_array(array_2d, (var_shape[1], var_shape[2]), var_type))
-        return retval
+        return Variable.__parse_value(arr[0], ClTypes.pointer_type), retval
 
     def __str__(self):
         return json.dumps(self, default=lambda o: o.__dict__)
@@ -322,6 +318,4 @@ class StructDeclaration(object):
 
 
 if __name__ == '__main__':
-    a = Declaration()
-    print('a')
-    # print(Variable.parse_value(value='0.100000,0.200000', var_type='double2'))
+    print(Variable.__parse_value(value='0.100000,0.200000', var_type='double2'))
