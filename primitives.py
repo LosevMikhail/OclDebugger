@@ -88,8 +88,8 @@ class Declaration(object):
             t = 1
             shape_rev = reversed(self.var_shape)
             for d in shape_rev:
-                d += 1
                 t *= d
+                t += 1
             val_words = t
         elif self.is_struct():
             struct_decl = ClTypes.get_struct_decl(self.var_type)
