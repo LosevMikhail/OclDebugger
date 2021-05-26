@@ -145,13 +145,16 @@ class Variable(object):
     def __init__(self, decl: VarDeclaration, value: str, gid: int = None):
         self.decl = decl
         self.gid = gid
+
+        values = value.split(' ')
+        assert values[0] == decl.var_name
+        value = ' '.join(values[1:])
         self.value = self.__parse_var(value, decl)
 
     @staticmethod
     def __parse_var(value, decl):
         if decl.is_array:
             n_dims = len(decl.var_shape)
-            values = value.split(' ')
             if n_dims == 1:
                 return Variable.__parse_1d_array(values, decl.var_shape, decl.var_type)
             elif n_dims == 2:
@@ -200,6 +203,8 @@ class Variable(object):
         for f in struct.fields.keys():
             field_decl = struct.fields[f]
             field_type = field_decl.var_type
+            assert elements[i] == field_decl.var_name
+            i += 1
             if field_decl.is_array:
                 pass  # TODO: implement
             else:

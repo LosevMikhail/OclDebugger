@@ -74,8 +74,11 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
         var_name = v.var_name
         if parent is not None:
             var_name = '.'.join([parent, var_name])
+
+        retval = ''
+        retval += f'printf("{v.var_name} ");'
         if v.pointer_rank:
-            return f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)} {delim}", {var_name});\n'
+            retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)} {delim}", {var_name});\n'
         else:
             if v.is_struct():
                 struct_type = v.var_type
@@ -85,14 +88,14 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
                 struct = [s for s in self._structs if s.name == struct_type]
                 assert len(struct) == 1
                 struct = struct[0]
-                retval = ''
+
                 for f in struct.fields.keys():
                     t = self.__gen_printf_var(struct.fields[f], parent=var_name)
                     retval += t
                 retval += f'printf("{delim}");'
-                return retval
             else:
-                return f'printf("{ClTypes.get_printf_flag(v.var_type)} {delim}", {var_name});\n'
+                retval += f'printf("{ClTypes.get_printf_flag(v.var_type)} {delim}", {var_name});\n'
+        return retval
 
     @staticmethod
     def __gen_cycle(counter_name, count, contents: [str]):
