@@ -7,7 +7,7 @@ from shutil import copyfile  # TODO: find out whether it works with Windows
 from typing import List
 
 from PrintfInserter import PrintfInserter
-from primitives import VarDeclaration, Variable
+from primitives import VarDeclaration, Variable, ClTypes
 
 
 class OclDebugger(object):
@@ -36,7 +36,14 @@ class OclDebugger(object):
         kernel_processor = PrintfInserter(self._break_line, self._threads)
         with open(self._kernel_file, 'r') as source_kernel_file:
             kernel = kernel_processor.process_source(str(source_kernel_file.read()), 'cl')
+
+        ClTypes.struct_types = kernel_processor.get_structs()
+
         with open(self._kernel_file, 'w') as kernel_file:
+            kernel_file.write(kernel)
+            kernel_file.close()
+
+        with open('kernel.cl', 'w') as kernel_file:
             kernel_file.write(kernel)
             kernel_file.close()
 
