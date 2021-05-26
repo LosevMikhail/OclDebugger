@@ -177,7 +177,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             declarations = self.get_decl_statements(block)
             declarations = filter_node_list_by_start_line(declarations, by_line=self._break_line)
             var_declarations = self._get_var_declarations(declarations)
-            var_declarations = [VarDeclaration(c) for c in var_declarations]
+            var_declarations = [VarDeclaration(c.spelling, c.type.spelling) for c in var_declarations]
             self._variables.extend(var_declarations)
 
         for v in self._variables:
@@ -192,7 +192,6 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
         threads_array = '_losev_target_threads'
         thread_counter = '_losev_thread_counter'
         initializer_list = ', '.join([str(i) for i in self._threads])
-        # TODO: something about the indents
         self._line_insertions.insert(0, f'int {threads_array}[] = {{{initializer_list}}};')
         self._line_insertions.insert(1,
                                      f'if (get_global_id(0) == *{threads_array}) {{ printf("{self._magic_string}\\n"); }} \n')
