@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import os
 import sys
@@ -107,27 +108,23 @@ class OclDebugger(object):
             yield line
 
 
-def main(argv: [str]):
-    if len(argv) > 1:
-        kernel_file = argv[0]
-        binary = argv[1]
-        break_line = int(argv[2]) - 1  # It makes a difference if we count from 0 or 1
-    else:
-        kernel_file = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/kernel.cl'
-        binary = '/home/mikhail/src/GRADUATE_WORK/cl_project/build_release/src/application/app'
-        break_line = 16
-
-    threads = [0, 3]
+def main():
+    parser = argparse.ArgumentParser(prog='OclDebugger.py')
+    parser.add_argument('-k', '--kernel', help='<Required> Kernel file location', required=True)
+    parser.add_argument('-a', '--application', help='<Required> Target application location', required=True)
+    parser.add_argument('-p', '--breakpoint', help='<Required> Breakpoint', type=int, required=True)
+    parser.add_argument('-t', '--threads', nargs='+', help='<Required> Target threads (global ids)', type=int, required=True)
+    args = parser.parse_args()
 
     debugger = OclDebugger(
-        kernel_file=kernel_file,
-        binary=binary
+        kernel_file=args.kernel,
+        binary=args.application
     )
 
-    variables = debugger.safe_debug(break_line=break_line, threads=threads)
+    variables = debugger.safe_debug(break_line=args.breakpoint, threads=args.threads)
     for v in variables:
         print(v)
 
 
 if __name__ == '__main__':
-    exit(main(sys.argv[1:]))
+    exit(main())
