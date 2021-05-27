@@ -145,14 +145,13 @@ class VarDeclaration(Declaration, ABC):
 
 
 class FieldDeclaration(Declaration, ABC):
-    def __init__(self, node: Cursor):
+    def __init__(self,  var_name: str, full_type: str):
         super().__init__()
-        assert node.kind == CursorKind.FIELD_DECL
 
-        self.var_name = node.spelling
+        self.var_name = var_name
 
         # Make ASM come first
-        words = node.type.spelling.split(' ')
+        words = full_type.split(' ')
         assert words is not None
         assert len(words) > 0
         self.full_type = ' '.join(words)
@@ -301,7 +300,7 @@ class StructDeclaration(object):
         fields = filter_node_list_by_node_kind(node.get_children(), [CursorKind.FIELD_DECL])
         self.fields = {}
         for f in fields:
-            self.fields[f.spelling] = FieldDeclaration(f)
+            self.fields[f.spelling] = FieldDeclaration(f.spelling, f.type.spelling)
 
     def words_num(self):
         retval = 0
