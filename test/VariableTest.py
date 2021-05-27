@@ -1,11 +1,35 @@
 import unittest
 
-from primitives import Variable, VarDeclaration
+from primitives import Variable, VarDeclaration, StructDeclaration, FieldDeclaration, ClTypes
 
 
 class VariableTest(unittest.TestCase):
     def setUp(self) -> None:
-        pass
+        s1, s2 = StructDeclaration(None), StructDeclaration(None)
+        arr1dstruct, arr2dstruct, arr3dstruct = StructDeclaration(None), StructDeclaration(None), StructDeclaration(
+            None)
+
+        s1.name = 'my_struct_1'
+        s1.fields = {'count': FieldDeclaration('count', 'int'),
+                     'v': FieldDeclaration('v', 'double2')}
+
+        s2.name = 'my_struct_2'
+        s2.fields = {'count': FieldDeclaration('count', 'int'),
+                     'v': FieldDeclaration('v', 'my_struct_1')}
+
+        arr1dstruct.name = 'my_struct_3'
+        arr1dstruct.fields = {'count': FieldDeclaration('count', 'int'),
+                              'a': FieldDeclaration('a', 'int [3]')}
+
+        arr2dstruct.name = 'my_struct_4'
+        arr2dstruct.fields = {'count': FieldDeclaration('count', 'int'),
+                              'a': FieldDeclaration('a', 'int [3] [2]')}
+
+        arr3dstruct.name = 'my_struct_5'
+        arr3dstruct.fields = {'count': FieldDeclaration('count', 'int'),
+                              'a': FieldDeclaration('a', 'int [3] [2] [1]')}
+
+        ClTypes.struct_declarations = [s1, s2, arr1dstruct, arr2dstruct, arr3dstruct]
 
     def tearDown(self) -> None:
         pass
@@ -130,6 +154,34 @@ class VariableTest(unittest.TestCase):
         self.assertEqual(var.value, (0x00000000, [(0x00000000, [(0x00000000, [1]), (0x00000004, [2])]),
                                                   (0x00000008, [(0x00000008, [3]), (0x0000000C, [4])]),
                                                   (0x00000010, [(0x00000010, [5]), (0x00000014, [6])])]))
+
+    def test_simple_struct1(self):
+        var = Variable(decl=VarDeclaration(var_name='s', full_type='__private my_struct_1'),
+                       value='s count 0x1488 v 0.1,0.2')
+        self.assertEqual(var.value, {'count': 0x1488, 'v': [0.1, 0.2]})
+
+    def test_simple_struct2(self):
+        var = Variable(decl=VarDeclaration(var_name='s', full_type='__private my_struct_1'),
+                       value='s count 0x145 v 0.1,0.3')
+        self.assertEqual(var.value, {'count': 0x145, 'v': [0.1, 0.3]})
+
+    def test_struct_with_struct_as_a_field(self):
+        var = Variable(decl=VarDeclaration(var_name='s', full_type='__private my_struct_2'),
+                       value='s count 0x145 v count 0x231 v 0.1,0.3')
+        self.assertEqual(var.value, {'count': 0x145, 'v': {'count': 0x231, 'v': [0.1, 0.3]}})
+
+    def test_array1d_struct(self):
+        var = Variable(decl=VarDeclaration(var_name='s', full_type='__private my_struct_3'),
+                       value='s count 0x1488 a 0x00000000 0x71 0x198 0x43')
+        self.assertEqual(var.value, {'count': 0x1488, 'a': (0, [0x71, 0x198, 0x43])})
+
+    def test_array2d_struct(self):
+        var = Variable(decl=VarDeclaration(var_name='s', full_type='__private my_struct_5'),
+                       value='s count 0x1488 a 0x00000000 0x00000000 0x00000000 1 0x00000004 2 0x00000008 0x00000008 3 0x0000000C 4 0x00000010 0x00000010 5 0x00000014 6')
+        self.assertEqual(var.value,
+                         {'count': 0x1488, 'a': (0x00000000, [(0x00000000, [(0x00000000, [1]), (0x00000004, [2])]),
+                                                              (0x00000008, [(0x00000008, [3]), (0x0000000C, [4])]),
+                                                              (0x00000010, [(0x00000010, [5]), (0x00000014, [6])])])})
 
 
 if __name__ == "__main__":

@@ -295,10 +295,13 @@ class Variable(object):
 
 class StructDeclaration(object):
     def __init__(self, node: Cursor):
+        self.fields = {}
+        self.name = None
+        if node is None:
+            return
         assert node.kind == CursorKind.STRUCT_DECL
         self.name = node.spelling
         fields = filter_node_list_by_node_kind(node.get_children(), [CursorKind.FIELD_DECL])
-        self.fields = {}
         for f in fields:
             self.fields[f.spelling] = FieldDeclaration(f.spelling, f.type.spelling)
 
