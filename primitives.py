@@ -22,7 +22,7 @@ class ClTypes:
     vector_types = [f'{t}{n}' for t in vector_base for n in [2, 4, 8, 16]]
     scalar_types = ['char', 'uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong', 'float', 'double']
 
-    struct_declarations: [] = None
+    struct_declarations: [] = []
 
     parser = {
         'char': np.int8,

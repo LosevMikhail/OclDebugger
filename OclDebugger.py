@@ -53,7 +53,7 @@ class OclDebugger(object):
         try:
             loop.run_until_complete(self._build())
         finally:
-            loop.run_until_complete(loop.shutdown_asyncgens())
+            # loop.run_until_complete(loop.shutdown_asyncgens())
             pass
 
         try:
@@ -64,6 +64,7 @@ class OclDebugger(object):
             # see: https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.shutdown_asyncgens
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
+            pass
 
     def _build_env(self) -> dict:
         env = os.environ.copy()
