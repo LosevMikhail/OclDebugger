@@ -7,7 +7,7 @@ from shutil import copyfile  # TODO: find out whether it works with Windows
 
 from typing import List
 
-from PrintfInserter import PrintfInserter
+from KernelProcessor import KernelProcessor
 from primitives import VarDeclaration, Variable, ClTypes
 
 
@@ -35,7 +35,7 @@ class OclDebugger(object):
         return variables
 
     def _debug(self):
-        kernel_processor = PrintfInserter(self._break_line, self._threads)
+        kernel_processor = KernelProcessor(self._break_line, self._threads)
         with open(self._kernel_file, 'r') as source_kernel_file:
             kernel = kernel_processor.process_source(str(source_kernel_file.read()), 'cl')
 
@@ -80,7 +80,7 @@ class OclDebugger(object):
     async def process_values(self, info: List[VarDeclaration], values):
         while True:
             try:
-                if await values.__anext__() == PrintfInserter.get_magic_string():
+                if await values.__anext__() == KernelProcessor.get_magic_string():
                     break
             except StopAsyncIteration as e:
                 fatal('No debugging data received')

@@ -32,11 +32,5 @@ __kernel void test(__global int* message, __global char* debuggingBuffer)
 
 
 
-
-
-	
-
-
-//	message[gid] += gid;
 }
 

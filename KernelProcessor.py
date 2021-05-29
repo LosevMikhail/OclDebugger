@@ -8,7 +8,7 @@ from filters import filter_node_list_by_node_kind, filter_node_list_by_start_lin
 from primitives import ClTypes, VarDeclaration, StructDeclaration, Declaration
 
 
-class PrintfInserter(OclSourceProcessor, LineInserter):
+class KernelProcessor(OclSourceProcessor, LineInserter):
     _magic_string: str = '[ debugging output begins ]'
     _counter_names = ['_losev_' + e for e in ['i', 'j', 'k']]
     _variables: [VarDeclaration] = None
@@ -28,7 +28,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
 
     @staticmethod
     def get_magic_string():
-        return PrintfInserter._magic_string
+        return KernelProcessor._magic_string
 
     @staticmethod
     def get_var_declarations(block: Cursor):
@@ -77,34 +77,34 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
             var_name = '.'.join([parent, var_name])
         retval = f'printf("{v.var_name} ");'
         n_dims = len(v.var_shape)
-        counter_names = PrintfInserter._counter_names
+        counter_names = KernelProcessor._counter_names
         if 1 == n_dims:
             retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name});\n'
-            res = PrintfInserter.__gen_cycle(counter_names[0], str(v.var_shape[0]),
-                                   contents=['printf(" ");',
+            res = KernelProcessor.__gen_cycle(counter_names[0], str(v.var_shape[0]),
+                                              contents=['printf(" ");',
                                              f'printf("{ClTypes.get_printf_flag(v.var_type)}", {var_name}[{counter_names[0]}]);'])
             for e in res:
                 retval += e + '\n'
         elif 2 == n_dims:
             retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name});\n'
-            inner_lines = PrintfInserter.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
-                                           contents=['printf(" ");',
+            inner_lines = KernelProcessor.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
+                                                      contents=['printf(" ");',
                                                      f'printf("{ClTypes.get_printf_flag(v.var_type)}", {var_name}[{counter_names[0]}][{counter_names[1]}]);'])
-            res = PrintfInserter.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
-                                   contents=[
+            res = KernelProcessor.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
+                                              contents=[
                                                 f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name}[{counter_names[0]}]);'] + inner_lines)
             for e in res:
                 retval += e + '\n'
         elif 3 == n_dims:
             retval += f'printf("{ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name});\n'
-            inner_lines = PrintfInserter.__gen_cycle(counter_name=counter_names[2], count=str(v.var_shape[2]),
-                                           contents=['printf(" ");',
+            inner_lines = KernelProcessor.__gen_cycle(counter_name=counter_names[2], count=str(v.var_shape[2]),
+                                                      contents=['printf(" ");',
                                                      f'printf("{ClTypes.get_printf_flag(v.var_type)}", {var_name}[{counter_names[0]}][{counter_names[1]}][{counter_names[2]}]);'])
-            inner_lines = PrintfInserter.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
-                                           contents=[
+            inner_lines = KernelProcessor.__gen_cycle(counter_name=counter_names[1], count=str(v.var_shape[1]),
+                                                      contents=[
                                                         f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name}[{counter_names[0]}][{counter_names[1]}]);'] + inner_lines)
-            res = PrintfInserter.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
-                                   contents=[
+            res = KernelProcessor.__gen_cycle(counter_name=counter_names[0], count=str(v.var_shape[0]),
+                                              contents=[
                                                 f'printf(" {ClTypes.get_printf_flag(ClTypes.pointer_type)}", {var_name}[{counter_names[0]}]);'] + inner_lines)
             for e in res:
                 retval += e + '\n'
@@ -134,9 +134,9 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
 
                 for f in struct.fields.keys():
                     if struct.fields[f].is_array:
-                        t = PrintfInserter.__gen_printf_arr(struct.fields[f], parent=var_name, delim=' ')
+                        t = KernelProcessor.__gen_printf_arr(struct.fields[f], parent=var_name, delim=' ')
                     else:
-                        t = PrintfInserter.__gen_printf_var(struct.fields[f], parent=var_name)
+                        t = KernelProcessor.__gen_printf_var(struct.fields[f], parent=var_name)
                     retval += t
                 retval += f'printf("{delim}");'
             else:
@@ -153,9 +153,9 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
     def generate_printf(v: Declaration) -> str:
         retval = ''
         if v.is_array:
-            retval += PrintfInserter.__gen_printf_arr(v, delim='\\n')
+            retval += KernelProcessor.__gen_printf_arr(v, delim='\\n')
         else:
-            retval = PrintfInserter.__gen_printf_var(v, delim='\\n')
+            retval = KernelProcessor.__gen_printf_var(v, delim='\\n')
         return retval
 
     def _process(self, node):
@@ -215,7 +215,7 @@ class PrintfInserter(OclSourceProcessor, LineInserter):
 
 
 if __name__ == '__main__':
-    res = PrintfInserter.gen_print_arr('i', str(10),
-                                       PrintfInserter.gen_print_arr('j', str(11), ['printf("%d", i);']))
+    res = KernelProcessor.gen_print_arr('i', str(10),
+                                        KernelProcessor.gen_print_arr('j', str(11), ['printf("%d", i);']))
     for e in res:
         print(e)
